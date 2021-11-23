@@ -4,11 +4,17 @@
 ####################### Besic settings ##################
 #########################################################
 
-# upgrade
+# Rescue set
+
+rpm --rebuilddb --rcfile=/var/lib/rpm
+
+rpm -qa rpm --rcfile=/var/lib/rpm
+
+# Upgrade
 
 dnf -y upgrade
 
-# set keyboard
+# Set keyboard
 
 localectl set-keymap de
 
@@ -18,13 +24,29 @@ sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_c
 
 systemctl restart sshd
 
-# qemu guest agent - install and set
+# Qemu guest agent - install and set
 
 dnf -y install qemu-guest-agent
 
 systemctl enable qemu-guest-agent
 
 systemctl start qemu-guest-agent
+
+dnf -y install crun
+
+dnf -y install python3
+
+dnf -y install python3-pip
+
+dnf -y install lvm2
+
+timedatectl set-timezone Europe/Berlin
+
+dnf -y install chrony
+
+systemctl enable --now chronyd
+
+rm -f /etc/chrony.conf
 
 ########################################################
 #################### Requaired packages ################
@@ -44,37 +66,15 @@ dnf -y --refresh install runc
 
 dnf -y --refresh install podman
 
-dnf -y install crun
-
-# Python 3
-
-dnf -y install python3
-
-dnf -y install python3-pip
-
-# Chrony
-
-timedatectl set-timezone Europe/Berlin
-
-dnf -y install chrony
-
-systemctl enable --now chronyd
-
-rm -f /etc/chrony.conf
-
-# Install LVM2
-
-dnf -y install lvm2
-
-# Cephadm
+# Cepadm
 
 curl --silent --remote-name --location https://github.com/ceph/ceph/raw/octopus/src/cephadm/cephadm
 
 chmod +x /root/cephadm
 
-/root/./cephadm add-repo --release octopus
+./cephadm add-repo --release octopus
 
-/root/./cephadm install
+./cephadm install
 
 cephadm install ceph-common ceph-osd
 
