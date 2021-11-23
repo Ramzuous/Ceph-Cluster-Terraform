@@ -7,7 +7,7 @@ Number of the nodes is liited by network implementation.
 
 # What we need to start
  1. Terraform installed on Proxmox cluster
- 2. VM template with CentOS8-Stream Cloud init
+ 2. VM template with CentOS-8-Stream Cloud init
  3. RSA public and private keys
  
  When we have all stuff from above, we need to set all variables.
