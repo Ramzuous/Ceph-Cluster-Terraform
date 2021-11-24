@@ -6,6 +6,7 @@ It can have maximal nine osd nodes and maximaum nine mon nodes.
 Number of the nodes is liited by network implementation.
 
 # What we need to start
+
  1. Terraform installed on Proxmox cluster
  2. VM template with CentOS-8-Stream Cloud init
  3. RSA public and private keys
