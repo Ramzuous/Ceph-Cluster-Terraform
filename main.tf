@@ -7,19 +7,19 @@ resource "null_resource" "set_fingerprint_script_local" {
         count = 1
 
         provisioner "local-exec" {
-                command = "echo '#!/bin/bash' >> /root/scripts/set-fingerprint.sh"
+                command = "echo '#!/bin/bash' >> scripts/set-fingerprint.sh"
         }
 
         provisioner "local-exec" {
-                command = "echo 'ssh-keyscan 127.0.0.1 >> /root/.ssh/known_hosts' >> /root/scripts/set-fingerprint.sh"
+                command = "echo 'ssh-keyscan 127.0.0.1 >> /root/.ssh/known_hosts' >> scripts/set-fingerprint.sh"
         }
 
         provisioner "local-exec" {
-                command = "echo 'ssh-keyscan localhost >> /root/.ssh/known_hosts' >> /root/scripts/set-fingerprint.sh"
+                command = "echo 'ssh-keyscan localhost >> /root/.ssh/known_hosts' >> scripts/set-fingerprint.sh"
         }
 
         provisioner "local-exec" {
-                command = "echo 'ssh-keyscan ${var.ceph_admin_ip} >> /root/.ssh/known_hosts' >> /root/scripts/set-fingerprint.sh"
+                command = "echo 'ssh-keyscan ${var.ceph_admin_ip} >> /root/.ssh/known_hosts' >> scripts/set-fingerprint.sh"
         }
 }
 
@@ -28,7 +28,7 @@ resource "null_resource" "set_fingerprint_script_osd" {
         count = "${ var.osd_count }"
 
         provisioner "local-exec" {
-                command = "echo 'ssh-keyscan ${var.ceph_osd_ip}${count.index} >> /root/.ssh/known_hosts' >> /root/scripts/set-fingerprint.sh"
+                command = "echo 'ssh-keyscan ${var.ceph_osd_ip}${count.index} >> /root/.ssh/known_hosts' >> scripts/set-fingerprint.sh"
         }
 
         depends_on = [ null_resource.set_fingerprint_script_local ]
@@ -40,7 +40,7 @@ resource "null_resource" "set_fingerprint_script_mon" {
         count = "${ var.mon_count }"
 
         provisioner "local-exec" {
-                command = "echo 'ssh-keyscan ${var.ceph_mon_ip}${count.index} >> /root/.ssh/known_hosts' >> /root/scripts/set-fingerprint.sh"
+                command = "echo 'ssh-keyscan ${var.ceph_mon_ip}${count.index} >> /root/.ssh/known_hosts' >> scripts/set-fingerprint.sh"
         }
 
         depends_on = [ null_resource.set_fingerprint_script_osd ]
@@ -52,7 +52,7 @@ resource "null_resource" "set_localhost" {
         count = 1
 
         provisioner "local-exec" {
-                command = "echo 127.0.0.1 localhost >> /root/scripts/hosts-ceph-cluster"
+                command = "echo 127.0.0.1 localhost >> scripts/hosts-ceph-cluster"
         }
 
         depends_on = [ null_resource.set_fingerprint_script_mon ]
@@ -64,7 +64,7 @@ resource "null_resource" "set_ceph_admin_dns" {
         count = 1
 
         provisioner "local-exec" {
-                command = "echo ${var.ceph_admin_ip} ceph-admin${var.domain} ceph-admin >> /root/scripts/hosts-ceph-cluster"
+                command = "echo ${var.ceph_admin_ip} admin${var.domain} admin >> scripts/hosts-ceph-cluster"
         }
 
         depends_on = [ null_resource.set_localhost ]
@@ -76,7 +76,7 @@ resource "null_resource" "set_osd_dns" {
         count = "${ var.osd_count }"
 
         provisioner "local-exec" {
-                command = "echo ${var.ceph_osd_ip}${count.index} ceph-osd-${count.index}${var.domain} ceph-osd-${count.index} >> /root/scripts/hosts-ceph-cluster"
+                command = "echo ${var.ceph_osd_ip}${count.index} osd-${count.index}${var.domain} osd-${count.index} >> scripts/hosts-ceph-cluster"
         }
 
         depends_on = [ null_resource.set_ceph_admin_dns ]
@@ -89,22 +89,35 @@ resource "null_resource" "set_mon_dns" {
         count = "${ var.mon_count }"
 
         provisioner "local-exec" {
-                command = "echo ${var.ceph_mon_ip}${count.index} ceph-mon-${count.index}${var.domain} ceph-mon-${count.index} >> /root/scripts/hosts-ceph-cluster"
+                command = "echo ${var.ceph_mon_ip}${count.index} mon-${count.index}${var.domain} mon-${count.index} >> scripts/hosts-ceph-cluster"
         }
 
         depends_on = [ null_resource.set_osd_dns ]
 
 }
 
-# set ssh-config (/root/.ssh/config) - ceph-admin
+# set other chrony servers (/etc/chrony.conf) - 
+resource "null_resource" "set_chrony_server" {
+
+		count = "${ var.mon_count }"
+		
+		provisioner "local-exec" {
+                command = "echo server ${var.ceph_mon_ip}${count.index} >> scripts/chrony_servers"
+        }
+		
+		depends_on = [ null_resource.set_mon_dns ]
+		
+}
+
+# set ssh-config (/root/.ssh/config) - admin
 resource "null_resource" "set_admin_ssh_config" {
         count = 1
 
         provisioner "local-exec" {
-                command = "echo 'Host ceph-admin\n    Hostname ${var.ceph_admin_ip}\n    User root' >> /root/scripts/ssh-config"
+                command = "echo 'Host admin\n    Hostname ${var.ceph_admin_ip}\n    User root' >> scripts/ssh-config"
         }
 
-        depends_on = [ null_resource.set_mon_dns ]
+        depends_on = [ null_resource.set_chrony_server ]
 
 }
 
@@ -113,7 +126,7 @@ resource "null_resource" "set_osd_ssh_config" {
         count = "${ var.osd_count }"
 
         provisioner "local-exec" {
-                command = "echo 'Host ceph-osd-${count.index}\n    Hostname ${var.ceph_osd_ip}${count.index}\n    User root' >> /root/scripts/ssh-config"
+                command = "echo 'Host osd-${count.index}\n    Hostname ${var.ceph_osd_ip}${count.index}\n    User root' >> scripts/ssh-config"
         }
 
         depends_on = [ null_resource.set_admin_ssh_config ]
@@ -125,7 +138,7 @@ resource "null_resource" "set_mon_ssh_config" {
         count = "${ var.mon_count }"
 
         provisioner "local-exec" {
-                command = "echo 'Host ceph-mon-${count.index}\n    Hostname ${var.ceph_mon_ip}${count.index}\n    User root' >> /root/scripts/ssh-config"
+                command = "echo 'Host mon-${count.index}\n    Hostname ${var.ceph_mon_ip}${count.index}\n    User root' >> scripts/ssh-config"
         }
 
         depends_on = [ null_resource.set_osd_ssh_config ]
@@ -143,12 +156,12 @@ resource "proxmox_vm_qemu" "ceph_admin" {
         agent = 1
         count = 1
 
-        name = "ceph-admin"
+        name = "admin"
         target_node = "${ var.mon_target_node }"
         clone = "${ var.clone }"
         os_type = "${ var.type_of_os}"
         onboot = false
-        vmid = "199"
+        vmid = "400"
 
         cores = "${ var.cors_num }"
         memory = "${ var.memory_size }"
@@ -158,8 +171,8 @@ resource "proxmox_vm_qemu" "ceph_admin" {
 
         disk {
                 type = "${ var.disk_type }"
-                storage = "${ var.ceph_mon_storage }"
-                size = "${ var.ceph_mon_disk_size }"
+                storage = "LVM-2"
+                size = "32G"
         }
 
         network {
@@ -194,7 +207,7 @@ resource "null_resource" "ceph_admin_set" {
 
         # Send ssh config
         provisioner "file" {
-                source = "/root/scripts/ssh-config"
+                source = "scripts/ssh-config"
                 destination = "/root/.ssh/config"
 
                 connection {
@@ -207,8 +220,8 @@ resource "null_resource" "ceph_admin_set" {
 
         # Send DNS file
         provisioner "file" {
-                source = "/root/scripts/hosts-ceph-cluster"
-                destination = "/etc/hosts"
+                source = "scripts/hosts-ceph-cluster"
+				destination = "/etc/cloud/templates/hosts.redhat.tmpl"
 
                 connection {
                         type = "${ var.connection_type }"
@@ -220,7 +233,7 @@ resource "null_resource" "ceph_admin_set" {
 
         # Send ssh key
         provisioner "file" {
-                source = "/root/ssh_key"
+                source = "ssh_key"
                 destination = "/root/.ssh/id_rsa"
 
                 connection {
@@ -248,7 +261,7 @@ resource "null_resource" "ceph_admin_set" {
         # Set host name
         provisioner "remote-exec" {
                 inline = [
-                        "hostnamectl set-hostname ceph-admin",
+                        "hostnamectl set-hostname admin",
                 ]
 
                 connection {
@@ -261,7 +274,7 @@ resource "null_resource" "ceph_admin_set" {
 
         # Send install file-common
         provisioner "file" {
-                source = "/root/scripts/install-components.sh"
+                source = "scripts/install-components.sh"
                 destination = "/root/install-components.sh"
 
                 connection {
@@ -289,7 +302,7 @@ resource "null_resource" "ceph_admin_set" {
 
         # Send set chrony-server
         provisioner "file" {
-                source = "/root/scripts/install-chrony-server.sh"
+                source = "scripts/install-chrony-server.sh"
                 destination = "/root/install-chrony-server.sh"
 
                 connection {
@@ -331,12 +344,12 @@ resource "proxmox_vm_qemu" "ceph_mon" {
         agent = 1
         count = "${ var.mon_count }"
 
-        name = "ceph-mon-${count.index}"
+        name = "mon-${count.index}"
         target_node = "${ var.mon_target_node }"
         clone = "${ var.clone }"
         os_type = "${ var.type_of_os}"
         onboot = false
-        vmid = "30${count.index}"
+        vmid = "50${count.index}"
 
         cores = "${ var.cors_num }"
         memory = "${ var.memory_size }"
@@ -346,8 +359,8 @@ resource "proxmox_vm_qemu" "ceph_mon" {
 
         disk {
                 type = "${ var.disk_type }"
-                storage = "${ var.ceph_mon_storage }"
-                size = "${ var.ceph_mon_disk_size }"
+                storage = "LVM-2"
+                size = "32G"
         }
 
         network {
@@ -382,7 +395,7 @@ resource "null_resource" "ceph_mon_set" {
 
 		# Send ssh config
         provisioner "file" {
-                source = "/root/scripts/ssh-config"
+                source = "scripts/ssh-config"
                 destination = "/root/.ssh/config"
 
                 connection {
@@ -395,8 +408,8 @@ resource "null_resource" "ceph_mon_set" {
 
         # Send DNS file
         provisioner "file" {
-                source = "/root/scripts/hosts-ceph-cluster"
-                destination = "/etc/hosts"
+                source = "scripts/hosts-ceph-cluster"
+				destination = "/etc/cloud/templates/hosts.redhat.tmpl"
 
                 connection {
                         type = "${ var.connection_type }"
@@ -408,7 +421,7 @@ resource "null_resource" "ceph_mon_set" {
 
         # Send ssh key
         provisioner "file" {
-                source = "/root/ssh_key"
+                source = "ssh_key"
                 destination = "/root/.ssh/id_rsa"
 
                 connection {
@@ -436,7 +449,7 @@ resource "null_resource" "ceph_mon_set" {
         # Set host name
         provisioner "remote-exec" {
                 inline = [
-                        "hostnamectl set-hostname ceph-mon-${count.index}",
+                        "hostnamectl set-hostname mon-${count.index}",
                 ]
 
                 connection {
@@ -449,7 +462,7 @@ resource "null_resource" "ceph_mon_set" {
 
         # Send install file-common
         provisioner "file" {
-                source = "/root/scripts/install-components.sh"
+                source = "scripts/install-components.sh"
                 destination = "/root/install-components.sh"
 
                 connection {
@@ -475,18 +488,30 @@ resource "null_resource" "ceph_mon_set" {
                 }
         }
 
-        # Set chrony client
+        # Send set chrony-server
+        provisioner "file" {
+                source = "scripts/install-chrony-server.sh"
+                destination = "/root/install-chrony-server.sh"
+
+                connection {
+                        type = "${ var.connection_type }"
+                        user = "${ var.pve_user }"
+                        host = "${ var.ceph_admin_ip }"
+                        private_key = file(var.ssh_priv_key)
+                }
+        }
+
+        # Execute set chrony-server
         provisioner "remote-exec" {
                 inline = [
-                        "echo 'server ${var.ceph_admin_ip}' >> /etc/chrony.conf",
-						"timedatectl set-ntp true",
-						"systemctl enable --now chronyd"
+                        "chmod +x /root/install-chrony-server.sh",
+                        "/bin/bash /root/install-chrony-server.sh"
                 ]
 
                 connection {
                         type = "${ var.connection_type }"
                         user = "${ var.pve_user }"
-                        host = element(proxmox_vm_qemu.ceph_mon.*.ssh_host, count.index)
+                        host = "${ var.ceph_admin_ip }"
                         private_key = file(var.ssh_priv_key)
                 }
         }
@@ -506,12 +531,12 @@ resource "proxmox_vm_qemu" "ceph_osd" {
         agent = 1
         count = "${ var.osd_count }"
 
-        name = "ceph-osd-${count.index}"
+        name = "osd-${count.index}"
         target_node = "${ var.osd_target_node }"
         clone = "${ var.clone }"
         os_type = "${ var.type_of_os}"
         onboot = false
-        vmid = "20${count.index}"
+        vmid = "60${count.index}"
 
         cores = "${ var.cors_num }"
         memory = "${ var.memory_size }"
@@ -521,8 +546,8 @@ resource "proxmox_vm_qemu" "ceph_osd" {
 
         disk {
                 type = "${ var.disk_type }"
-                storage = "${ var.ceph_osd_storage }"
-                size = "${ var.ceph_osd_disk_size }"
+                storage = "LVM-2"
+                size = "20G"
         }
 
         network {
@@ -557,7 +582,7 @@ resource "null_resource" "ceph_osd_set" {
         # Set another disk for osd
         provisioner "remote-exec" {
                 inline = [
-                        "qm set 20${count.index} ${second_osd_disk}",
+                        "qm set 60${count.index} --scsi2 LVM-2:32",
                 ]
 
                 connection {
@@ -570,7 +595,7 @@ resource "null_resource" "ceph_osd_set" {
 
         # Send ssh config
         provisioner "file" {
-                source = "/root/scripts/ssh-config"
+                source = "scripts/ssh-config"
                 destination = "/root/.ssh/config"
 
                 connection {
@@ -584,8 +609,8 @@ resource "null_resource" "ceph_osd_set" {
 
         # Send DNS file
         provisioner "file" {
-                source = "/root/scripts/hosts-ceph-cluster"
-                destination = "/etc/hosts"
+                source = "scripts/hosts-ceph-cluster"
+				destination = "/etc/cloud/templates/hosts.redhat.tmpl"
 
                 connection {
                         type = "${ var.connection_type }"
@@ -595,10 +620,9 @@ resource "null_resource" "ceph_osd_set" {
                 }
         }
 
-
         # Send ssh key
         provisioner "file" {
-                source = "/root/ssh_key"
+                source = "ssh_key"
                 destination = "/root/.ssh/id_rsa"
 
                 connection {
@@ -626,7 +650,7 @@ resource "null_resource" "ceph_osd_set" {
         # Set host name
         provisioner "remote-exec" {
                 inline = [
-                        "hostnamectl set-hostname ceph-osd-${count.index}",
+                        "hostnamectl set-hostname osd-${count.index}",
                 ]
 
                 connection {
@@ -639,7 +663,7 @@ resource "null_resource" "ceph_osd_set" {
 
         # Send install file-common
         provisioner "file" {
-                source = "/root/scripts/install-components.sh"
+                source = "scripts/install-components.sh"
                 destination = "/root/install-components.sh"
 
                 connection {
@@ -664,8 +688,21 @@ resource "null_resource" "ceph_osd_set" {
                         private_key = file(var.ssh_priv_key)
                 }
         }
+        
+        # Send chrony-client file
+        provisioner "file" {
+                source = "scripts/chrony_servers"
+                destination = "/etc/chrony.conf"
 
-        # Set chrony client
+                connection {
+                        type = "${ var.connection_type }"
+                        user = "${ var.pve_user }"
+                        host = element(proxmox_vm_qemu.ceph_osd.*.ssh_host, count.index)
+                        private_key = file(var.ssh_priv_key)
+                }
+        }
+
+        # Set chrony-client
         provisioner "remote-exec" {
                 inline = [
                         "echo 'server ${var.ceph_admin_ip}' >> /etc/chrony.conf",
@@ -719,7 +756,7 @@ resource "null_resource" "admin_fingerprint" {
 
         # Send fingerprint script
         provisioner "file" {
-                source = "/root/scripts/set-fingerprint.sh"
+                source = "scripts/set-fingerprint.sh"
                 destination = "/root/set-fingerprint.sh"
 
                 connection {
@@ -757,7 +794,7 @@ resource "null_resource" "mon_fingerprint" {
 
         # Send fingerprint script
         provisioner "file" {
-                source = "/root/scripts/set-fingerprint.sh"
+                source = "scripts/set-fingerprint.sh"
                 destination = "/root/set-fingerprint.sh"
 
                 connection {
@@ -795,7 +832,7 @@ resource "null_resource" "osd_fingerprint" {
 
         # Send fingerprint script
         provisioner "file" {
-                source = "/root/scripts/set-fingerprint.sh"
+                source = "scripts/set-fingerprint.sh"
                 destination = "/root/set-fingerprint.sh"
 
                 connection {
@@ -836,7 +873,7 @@ resource "null_resource" "add_mon_keys_to_admin" {
     provisioner "remote-exec" {
 
                 inline = [
-                        "ssh-copy-id -f -i /etc/ceph/ceph.pub root@ceph-mon-${count.index}",
+                        "ssh-copy-id -f -i /etc/ceph/ceph.pub root@mon-${count.index}",
                 ]
 
                 connection {
@@ -859,7 +896,7 @@ resource "null_resource" "add_osd_keys_to_admin" {
         provisioner "remote-exec" {
 
                 inline = [
-                        "ssh-copy-id -f -i /etc/ceph/ceph.pub root@ceph-osd-${count.index}",
+                        "ssh-copy-id -f -i /etc/ceph/ceph.pub root@osd-${count.index}",
                 ]
 
                 connection {
@@ -882,7 +919,7 @@ resource "null_resource" "adding_ceph_osd_to_admin" {
         provisioner "remote-exec" {
 
                 inline = [
-                        "ceph orch host add ceph-osd-${count.index} ${var.ceph_osd_ip}${count.index} --labels _admin",
+                        "ceph orch host add osd-${count.index} ${var.ceph_osd_ip}${count.index} --labels _admin",
                 ]
 
                 connection {
@@ -905,7 +942,7 @@ resource "null_resource" "adding_ceph_mon_to_admin" {
         provisioner "remote-exec" {
 
                 inline = [
-                        "ceph orch host add ceph-mon-${count.index} ${var.ceph_mon_ip}${count.index} --labels _admin",
+                        "ceph orch host add mon-${count.index} ${var.ceph_mon_ip}${count.index} --labels _admin",
                 ]
 
                 connection {
@@ -951,7 +988,7 @@ resource "null_resource" "ultimate_add_mon" {
         provisioner "remote-exec" {
 
                 inline = [
-                        "ceph orch daemon add mon ceph-mon-${count.index}:${var.ceph_mon_ip}${count.index}",
+                        "ceph orch daemon add mon mon-${count.index}:${var.ceph_mon_ip}${count.index}",
                 ]
 
                 connection {
@@ -973,7 +1010,7 @@ resource "null_resource" "ultimate_add_osd" {
         provisioner "remote-exec" {
 
                 inline = [
-                        "ceph orch daemon add osd ceph-osd-${count.index}:/dev/sdb",
+                        "ceph orch daemon add osd osd-${count.index}:/dev/sdb",
                 ]
 
                 connection {
@@ -991,7 +1028,7 @@ resource "null_resource" "ultimate_add_osd" {
 # Seting telemetry
 resource "null_resource" "set_telemtry" {
 
-        count = "${ var.osd_count }"
+        count = 1
 
         provisioner "remote-exec" {
 

@@ -1,4 +1,4 @@
-#/bin/bash
+#!/bin/bash
 
 # It destroys created VMs by Terraform
 # terraform plan files
@@ -19,15 +19,33 @@ echo ""
 
 if [ $confirm == 'yes' ]
 then
-	rm /root/plan
 
-	rm /root/terraform.tfstate*
+	rm terraform.tfstate*
 
-	rm /root/scripts/ssh-config
+	if test -f plan;
+	then
+		rm plan
+	fi
 
-	rm /root/scripts/hosts-ceph-cluster
+	if test -f scripts/ssh-config;
+	then
+		rm scripts/ssh-config
+	fi
 
-	rm /root/scripts/set-fingerprint.sh
+	if test -f scripts/hosts-ceph-cluster;
+	then
+		rm scripts/hosts-ceph-cluster
+	fi
+
+	if test -f scripts/set-fingerprint.sh;
+	then
+		rm scripts/set-fingerprint.sh
+	fi
+
+	if test -f scripts/chrony_servers;
+	then
+		rm scripts/chrony_servers
+	fi
 
 	echo "Useless files are deleted"
 	echo ""
