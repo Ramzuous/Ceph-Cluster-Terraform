@@ -17,15 +17,15 @@ Number of the nodes is liited by network implementation.
  
  To run project just use:
  
- <code>
- ./terraform-run.sh
- </code>
+ ```bash
+    ./terraform-run.sh
+ ```
   
   
  In this script is set all what runs terraform script.
  
  If we want to destroy terraform, run:
  
- <code>
- ./terraform-clean.sh
-  </code>
+ ```bash
+    ./terraform-clean.sh
+ ```
