@@ -18,7 +18,7 @@ Number of the nodes is liited by network implementation.
  To run project just use:
  
  ```bash
-    ./terraform-run.sh
+ ./terraform-run.sh
  ```
   
   
@@ -27,5 +27,5 @@ Number of the nodes is liited by network implementation.
  If we want to destroy terraform, run:
  
  ```bash
-    ./terraform-clean.sh
+ ./terraform-clean.sh
  ```
